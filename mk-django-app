@@ -1,0 +1,119 @@
+#!/usr/bin/env bash
+
+PACKAGE_NAME="${1:?Python package name required}"
+PYTHON_VERSION="${2:-3.12}"
+
+# Licence is usually CC0 or Client proprietary
+LICENCE="${3:-CC0}"
+
+DJANGO_APP="${4:-pages}"
+DJANGO_PROJECT="${5:-django_website}"
+PROJECT_DESCRIPTION="${6:-Django website project}"
+
+# Poetry must be installed. 
+poetry --version || {
+    echo Poetry not installed
+    exit 1
+}
+
+# Do not run if a Poetry project file exists
+[ -f pyproject.toml ] && {
+    echo Poetry project file exists.
+    exit 1
+}
+
+# Do not run if git has been initialized
+[ -d .git ] && {
+    echo Git folder exists.
+    exit 0
+}
+
+function mk_readme {
+cat > README.md << EOF
+# Django project
+
+## Setup 
+After cloning from GitHUb run
+```
+poetry install
+```
+## Development server
+```
+poetry run python3 manage.py runserver
+```
+EOF
+}
+
+
+function mk_gitignore {
+cat > .gitignore <<EOF
+# Django #
+*.log
+*.pot
+*.pyc
+__pycache__
+db.sqlite3
+
+.~
+.*.swp
+.DS_Store
+
+
+# Jetbrains
+.idea/**/workspace.xml
+.idea/**/tasks.xml
+.idea/**/dataSources/
+.idea/**/dataSources.ids
+.idea/**/dataSources.xml
+.idea/**/dataSources.local.xml
+.idea/**/sqlDataSources.xml
+.idea/**/dynamic.xml
+.idea/**/uiDesigner.xml
+
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Environments
+.env
+.venv
+EOF
+}
+
+function edit_django_settings {
+    (
+    	cd ${DJANGO_PROJECT} &&
+        sed -i .sav "/django.contrib.staticfiles/ s/$/\n    \"${DJANGO_APP}\",/" settings.py &&
+        rm -f settings.py.sav
+    )
+}
+
+poetry init --name="${PACKAGE_NAME}" --description="${PROJECT_DESCRIPTION}" \
+		--python="^${PYTHON_VERSION}" --license="${LICENCE}" --quiet  &&
+poetry config virtualenvs.in-project true --local &&
+poetry env use "${PYTHON_VERSION}" &&
+poetry add django &&
+poetry add django-types django-stubs-ext &&
+poetry add --group dev pytest pytest-cov bandit black &&
+poetry add --group dev flake8 mypy pylint &&
+poetry run django-admin startproject "${DJANGO_PROJECT}" . &&
+poetry run python3 manage.py startapp "${DJANGO_APP}"  &&
+edit_django_settings &&
+git init &&
+git add . &&
+git commit -m "Initial commit" 
