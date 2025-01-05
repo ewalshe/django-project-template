@@ -3,8 +3,8 @@
 PACKAGE_NAME="${1:?Python package name required}"
 PYTHON_VERSION="${2:-3.12}"
 
-# Licence is usually CC0 or Client proprietary
-LICENCE="${3:-CC0}"
+# Licence is usually MIT or Proprietary
+LICENCE="${3:-MIT}"
 
 DJANGO_APP="${4:-pages}"
 DJANGO_PROJECT="${5:-django_website}"
@@ -29,23 +29,25 @@ poetry --version || {
 }
 
 function mk_readme {
+echo Create README file
+local CODE='```'
 cat > README.md << EOF
 # Django project
-
 ## Setup 
 After cloning from GitHUb run
-```
+${CODE}
 poetry install
-```
+${CODE}
 ## Development server
-```
+${CODE}
 poetry run python3 manage.py runserver
-```
+${CODE}
 EOF
 }
 
 
 function mk_gitignore {
+echo Create .gitignore file
 cat > .gitignore <<EOF
 # Django #
 *.log
@@ -72,22 +74,7 @@ db.sqlite3
 
 
 # Distribution / packaging
-.Python
-build/
-develop-eggs/
 dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
 
 # Environments
 .env
@@ -97,23 +84,32 @@ EOF
 
 function edit_django_settings {
     (
+	echo edit_django_settings &&
     	cd ${DJANGO_PROJECT} &&
         sed -i .sav "/django.contrib.staticfiles/ s/$/\n    \"${DJANGO_APP}\",/" settings.py &&
         rm -f settings.py.sav
     )
 }
 
-poetry init --name="${PACKAGE_NAME}" --description="${PROJECT_DESCRIPTION}" \
+function run {
+echo "$@"
+"$@"
+}
+
+run poetry init --name="${PACKAGE_NAME}" --description="${PROJECT_DESCRIPTION}" \
 		--python="^${PYTHON_VERSION}" --license="${LICENCE}" --quiet  &&
-poetry config virtualenvs.in-project true --local &&
-poetry env use "${PYTHON_VERSION}" &&
-poetry add django &&
-poetry add django-types django-stubs-ext &&
-poetry add --group dev pytest pytest-cov bandit black &&
-poetry add --group dev flake8 mypy pylint &&
-poetry run django-admin startproject "${DJANGO_PROJECT}" . &&
-poetry run python3 manage.py startapp "${DJANGO_APP}"  &&
+run poetry config virtualenvs.in-project true --local &&
+run poetry env use "${PYTHON_VERSION}" &&
+run poetry add django &&
+run poetry add django-types django-stubs-ext &&
+run poetry add --group test pytest pytest-cov &&
+run poetry add --group dev pytest pytest-cov bandit black &&
+run poetry add --group dev-extra flake8 mypy pylint &&
+run poetry run django-admin startproject "${DJANGO_PROJECT}" . &&
+run poetry run python3 manage.py startapp "${DJANGO_APP}"  &&
 edit_django_settings &&
-git init &&
-git add . &&
-git commit -m "Initial commit" 
+mk_gitignore &&
+mk_readme &&
+run git init &&
+run git add . &&
+run git commit -m "Initial commit" 
